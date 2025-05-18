@@ -1,43 +1,58 @@
-// src/components/Main.jsx
+// src/components/Main/Main.jsx
 import React, { useEffect, useRef } from 'react';
 import '../../assets/scss/Main.scss';
+import centers from '../../data/seoul_adm_centroids_normalized.json';
 
-const CERT_KEY = '3059da37325d0e6b01e0daee7c66dd46b73d4e43e2ff496993c0ce75b2ae6479'; // 공공데이터포털에서 발급받은 서비스키
+const CERT_KEY = '3059da37325d0e6b01e0daee7c66dd46b73d4e43e2ff496993c0ce75b2ae6479';
 
-function Main() {
+// Haversine 거리 계산 함수
+const toRad = deg => (deg * Math.PI) / 180;
+const haversine = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // 지구 반경 (km)
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+export default function Main() {
   const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   useEffect(() => {
     // 1) Leaflet CSS 로드
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-    link.crossOrigin = '';
     document.head.appendChild(link);
 
     // 2) Leaflet JS 로드
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
     script.crossOrigin = '';
     script.onload = () => {
       const L = window.L;
-      // 3) 지도 초기화
-      const map = L.map(mapRef.current).setView([37.5665, 126.9780], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
 
-      // 4) 공공데이터포털 API 호출 후 마커 등록
-      fetch(
-        'https://api.odcloud.kr/api/15012005/v1/centers?serviceKey=${CERT_KEY}&page=1&perPage=100'
-      )
-        .then(res => res.json())
-        .then(result => {
-          const items = result.data;
-          if (Array.isArray(items)) {
-            items.forEach(item => {
+      // 3) 지도는 한 번만 초기화
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapRef.current).setView([37.5665, 126.9780], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        mapInstanceRef.current = map;
+
+        // 4) 공공데이터포털 API 마커 로드
+        fetch(
+          `https://api.odcloud.kr/api/15012005/v1/centers?serviceKey=${CERT_KEY}&page=1&perPage=100`
+        )
+          .then(res => res.json())
+          .then(json => {
+            (json.data || []).forEach(item => {
               const lat = parseFloat(item.위도);
               const lng = parseFloat(item.경도);
               if (!isNaN(lat) && !isNaN(lng)) {
@@ -46,9 +61,28 @@ function Main() {
                   .bindPopup(item.상호명);
               }
             });
-          }
-        })
-        .catch(console.error);
+          })
+          .catch(console.error);
+
+        // 5) 클릭 이벤트: 마커 추가 + 행정동 판별
+        map.on('click', e => {
+          const { lat, lng } = e.latlng;
+          // 가장 가까운 행정동 찾기
+          let nearest = { name: null, dist: Infinity };
+          centers.forEach(d => {
+            const dist = haversine(lat, lng, d.lat, d.lng);
+            if (dist < nearest.dist) {
+              nearest = { name: d.name, dist };
+            }
+          });
+          L.marker([lat, lng])
+            .addTo(map)
+            .bindPopup(
+              `위도: ${lat.toFixed(5)}, 경도: ${lng.toFixed(5)}<br/>행정동: ${nearest.name}`
+            )
+            .openPopup();
+        });
+      }
     };
     document.body.appendChild(script);
 
@@ -63,11 +97,8 @@ function Main() {
     <div className="main-container">
       <header className="main-header">
         <div className="logo-image">
-            <img
-              src="/image/On_image.png"
-              alt="상권온 로고"
-            />
-          </div>
+          <img src="/image/On_image.png" alt="상권온 로고" />
+        </div>
         <div className="logo">상권온(ON)</div>
       </header>
 
@@ -76,9 +107,15 @@ function Main() {
         <section className="location-select">
           <h2>지역을 선택하세요.</h2>
           <div className="dropdowns">
-            <select><option>서울시</option></select>
-            <select><option>군</option></select>
-            <select><option>구</option></select>
+            <select>
+              <option>서울시</option>
+            </select>
+            <select>
+              <option>군</option>
+            </select>
+            <select>
+              <option>구</option>
+            </select>
           </div>
           <div className="region-list">
             <p>서울시 강남구 상권은 어떠세요.</p>
@@ -117,5 +154,3 @@ function Main() {
     </div>
   );
 }
-
-export default Main;
