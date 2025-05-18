@@ -1,5 +1,5 @@
 // src/components/Main/Main.jsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import '../../assets/scss/Main.scss';
 import centers from '../../data/seoul_adm_centroids_normalized.json';
 
@@ -23,30 +23,30 @@ const haversine = (lat1, lon1, lat2, lon2) => {
 export default function Main() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // 1) Leaflet CSS 로드
+    // Load Leaflet CSS
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.appendChild(link);
 
-    // 2) Leaflet JS 로드
+    // Load Leaflet JS
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.crossOrigin = '';
     script.onload = () => {
       const L = window.L;
-
-      // 3) 지도는 한 번만 초기화
       if (!mapInstanceRef.current) {
+        // initialize map
         const map = L.map(mapRef.current).setView([37.5665, 126.9780], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
         mapInstanceRef.current = map;
 
-        // 4) 공공데이터포털 API 마커 로드
+        // load public data markers
         fetch(
           `https://api.odcloud.kr/api/15012005/v1/centers?serviceKey=${CERT_KEY}&page=1&perPage=100`
         )
@@ -56,24 +56,19 @@ export default function Main() {
               const lat = parseFloat(item.위도);
               const lng = parseFloat(item.경도);
               if (!isNaN(lat) && !isNaN(lng)) {
-                L.marker([lat, lng])
-                  .addTo(map)
-                  .bindPopup(item.상호명);
+                L.marker([lat, lng]).addTo(map).bindPopup(item.상호명);
               }
             });
           })
           .catch(console.error);
 
-        // 5) 클릭 이벤트: 마커 추가 + 행정동 판별
+        // click to add marker and show nearest dong
         map.on('click', e => {
           const { lat, lng } = e.latlng;
-          // 가장 가까운 행정동 찾기
           let nearest = { name: null, dist: Infinity };
           centers.forEach(d => {
             const dist = haversine(lat, lng, d.lat, d.lng);
-            if (dist < nearest.dist) {
-              nearest = { name: d.name, dist };
-            }
+            if (dist < nearest.dist) nearest = { name: d.name, dist };
           });
           L.marker([lat, lng])
             .addTo(map)
@@ -86,12 +81,29 @@ export default function Main() {
     };
     document.body.appendChild(script);
 
-    // 언마운트 시 정리
     return () => {
       document.head.removeChild(link);
       document.body.removeChild(script);
     };
   }, []);
+
+  const handleSearch = () => {
+    const map = mapInstanceRef.current;
+    if (!map || !searchTerm) return;
+    // find exact match
+    const found = centers.find(d => d.name === searchTerm);
+    if (!found) {
+      alert(`"${searchTerm}" 행정동을 찾을 수 없습니다.`);
+      return;
+    }
+    // pan to location
+    map.setView([found.lat, found.lng], 15);
+    // add marker
+    window.L.marker([found.lat, found.lng])
+      .addTo(map)
+      .bindPopup(`행정동: ${found.name}`)
+      .openPopup();
+  };
 
   return (
     <div className="main-container">
@@ -103,19 +115,13 @@ export default function Main() {
       </header>
 
       <div className="main-content">
-        {/* --- 지역 선택 섹션 --- */}
+        {/* 지역 선택 섹션 */}
         <section className="location-select">
           <h2>지역을 선택하세요.</h2>
           <div className="dropdowns">
-            <select>
-              <option>서울시</option>
-            </select>
-            <select>
-              <option>군</option>
-            </select>
-            <select>
-              <option>구</option>
-            </select>
+            <select><option>서울시</option></select>
+            <select><option>군</option></select>
+            <select><option>구</option></select>
           </div>
           <div className="region-list">
             <p>서울시 강남구 상권은 어떠세요.</p>
@@ -126,10 +132,18 @@ export default function Main() {
           </div>
         </section>
 
-        {/* --- 지도 표시 섹션 --- */}
+        {/* 지도 섹션 */}
         <section className="map-section">
+          <div className="search-bar">
+            <input
+              type="text"
+              placeholder="행정동 이름을 입력하세요"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            <button onClick={handleSearch}>찾기</button>
+          </div>
           <div className="map-container">
-            {/* 이 div가 지도를 렌더링 합니다 */}
             <div id="map" ref={mapRef} />
           </div>
           <div className="region-summary">
@@ -140,7 +154,7 @@ export default function Main() {
           </div>
         </section>
 
-        {/* --- 시각화 보조자료 섹션 --- */}
+        {/* 시각화 보조자료 섹션 */}
         <section className="visual-section">
           <h2>시각화 보조자료</h2>
           <div className="bar-chart">

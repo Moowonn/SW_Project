@@ -41,9 +41,7 @@
   padding: 20px;
   border-radius: 10px;
 
-  h2 {
-    margin-bottom: 10px;
-  }
+  h2 { margin-bottom: 10px; }
 
   .dropdowns {
     display: flex;
@@ -61,9 +59,7 @@
     max-height: 150px;
     overflow-y: auto;
 
-    p {
-      margin: 5px 0;
-    }
+    p { margin: 5px 0; }
   }
 }
 
@@ -73,6 +69,27 @@
   flex-direction: column;
   gap: 15px;
 
+  .search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 8px 12px;
+      border: none;
+      background-color: #4a90e2;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  }
+
   .map-container {
     width: 100%;
     height: 400px;                
@@ -81,7 +98,6 @@
     overflow: hidden;
     position: relative;
 
-    // 지도 div가 부모 컨테이너를 꽉 채우도록 절대 위치 지정
     #map {
       position: absolute;
       top: 0;
@@ -97,12 +113,8 @@
     border-radius: 10px;
     min-height: 300px;
 
-    h3 {
-      margin-bottom: 10px;
-    }
-    p {
-      margin: 4px 0;
-    }
+    h3 { margin-bottom: 10px; }
+    p  { margin: 4px 0; }
   }
 }
 
@@ -110,9 +122,7 @@
   flex: 1 1 100%;
   margin-top: 30px;
 
-  h2 {
-    margin-bottom: 10px;
-  }
+  h2 { margin-bottom: 10px; }
 
   .bar-chart {
     display: flex;
